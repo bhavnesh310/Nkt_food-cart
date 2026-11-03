@@ -1,184 +1,180 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>nkt_food-cart</title>
+<title>NKT Food Cart - Neem Ka Thana</title>
 <style>
-body{margin:0;font-family:Arial;background:#f5f7f5;color:#222}
-header{background:#174331;color:white;padding:20px}
-h1{margin:0}
-main{padding:20px;max-width:1000px;margin:auto}
-.search{width:95%;padding:14px;border:1px solid #ddd;border-radius:10px}
-.categories,.products{display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin-top:20px}
-.card{background:white;padding:18px;border-radius:12px;text-align:center}
-.emoji{font-size:40px}
-button{background:#174331;color:white;border:0;padding:10px 18px;border-radius:8px;cursor:pointer}
-h2{margin-top:28px}
-#cart{background:white;padding:15px;border-radius:12px;margin-top:25px}
-@media(min-width:650px){.categories{grid-template-columns:repeat(4,1fr)}.products{grid-template-columns:repeat(3,1fr)}}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f5f7f5;color:#222}
+header{background:#147a45;color:white;padding:18px}
+header h1{margin:0;font-size:25px}
+header p{margin:6px 0 0}
+main{max-width:1100px;margin:auto;padding:16px}
+.search{width:100%;padding:14px;border:1px solid #ddd;border-radius:10px;font-size:16px}
+h2{font-size:21px;margin-top:25px}
+.shop-list,.products{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}
+.shop,.product{background:white;padding:14px;border-radius:12px;box-shadow:0 2px 8px #0001}
+.shop{cursor:pointer;border:2px solid transparent}
+.shop.active{border-color:#16834d;background:#eaf7ef}
+.shop h3,.product h3{margin:8px 0;font-size:16px}
+.shop p,.product p{margin:5px 0;color:#666;font-size:13px}
+.product img{width:100%;height:115px;object-fit:cover;border-radius:8px;background:#eee}
+.price{font-weight:bold;color:#147a45;font-size:17px}
+button{background:#147a45;color:white;border:0;padding:10px 13px;border-radius:8px;cursor:pointer}
+button:disabled{background:#999}
+.cart,.checkout{background:white;padding:16px;border-radius:12px;margin-top:22px}
+.cart-item{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #eee}
+input,textarea{width:100%;padding:12px;margin:7px 0;border:1px solid #ccc;border-radius:8px;font-size:15px}
+textarea{min-height:75px}
+.total{font-size:19px;font-weight:bold;margin:15px 0}
+footer{text-align:center;padding:25px;color:#777}
 </style>
 </head>
 <body>
 <header>
-<h1>🛒 nkt_food-cart</h1>
+<h1>🛒 NKT FOOD CART</h1>
 <p>Food • Grocery • Daily Needs</p>
 <p>📍 Neem Ka Thana, Rajasthan</p>
 </header>
+
 <main>
-<h2>Welcome to nkt_food-cart!</h2>
-<p>Your Local Food & Grocery Store</p>
-<input class="search" id="search" placeholder="Search food and grocery..." oninput="showProducts()">
+<input class="search" id="search" placeholder="दुकान या प्रोडक्ट खोजें..." oninput="renderProducts()">
 
-<h2>Shop By Category</h2>
-<div class="categories">
-<div class="card"><div class="emoji">🍔</div>Fast Food</div>
-<div class="card"><div class="emoji">🍕</div>Pizza</div>
-<div class="card"><div class="emoji">🥦</div>Vegetables</div>
-<div class="card"><div class="emoji">🥛</div>Grocery</div>
-</div>
+<h2>हमारी दुकानें</h2>
+<div class="shop-list" id="shops"></div>
 
-<h2>Popular Products</h2>
+<h2 id="productHeading">लोकप्रिय प्रोडक्ट</h2>
 <div class="products" id="products"></div>
 
-<div id="cart">
-<h2>🛒 My Cart (<span id="count">0</span>)</h2>
-<div id="items">Your cart is empty.</div>
-<h3 id="total">Total: ₹0</h3>
-</div>
+<section class="cart">
+<h2>🛍️ आपका Cart</h2>
+<div id="cartItems">अभी Cart खाली है।</div>
+<div class="total" id="total">कुल: ₹0</div>
+</section>
+
+<section class="checkout">
+<h2>📦 Checkout</h2>
+<form id="orderForm">
+<input id="customer" placeholder="आपका पूरा नाम" required>
+<input id="phone" placeholder="मोबाइल नंबर" type="tel" pattern="[0-9]{10}" maxlength="10" required>
+<textarea id="address" placeholder="पूरा डिलीवरी पता" required></textarea>
+<p><b>Payment Method:</b> Cash on Delivery (सामान मिलने पर भुगतान)</p>
+<button type="submit">Place Order</button>
+</form>
+<p id="message"></p>
+</section>
 </main>
+
+<footer>NKT Food Cart © Neem Ka Thana</footer>
+
 <script>
-const products=[
-{name:"Veg Burger",price:79,emoji:"🍔"},
-{name:"Pizza",price:149,emoji:"🍕"},
-{name:"Momos",price:89,emoji:"🥟"},
-{name:"Milk",price:30,emoji:"🥛"},
-{name:"Bread",price:40,emoji:"🍞"},
-{name:"Tomato",price:30,emoji:"🍅"}
+const shops=[
+{id:1,name:"Sharma Grocery",type:"किराना स्टोर",icon:"🛒"},
+{id:2,name:"City Fast Food",type:"फास्ट फूड",icon:"🍔"},
+{id:3,name:"Fresh Vegetable Store",type:"सब्जी की दुकान",icon:"🥦"},
+{id:4,name:"Gupta Bakery",type:"बेकरी",icon:"🎂"},
+{id:5,name:"Daily Needs Store",type:"दैनिक जरूरतें",icon:"🏪"}
 ];
+
+const products=[
+{id:1,shop:1,name:"आटा 5 KG",price:180,image:"https://placehold.co/300x200?text=Atta"},
+{id:2,shop:1,name:"चावल 1 KG",price:65,image:"https://placehold.co/300x200?text=Rice"},
+{id:3,shop:1,name:"चीनी 1 KG",price:45,image:"https://placehold.co/300x200?text=Sugar"},
+{id:4,shop:2,name:"वेज बर्गर",price:60,image:"https://placehold.co/300x200?text=Burger"},
+{id:5,shop:2,name:"पिज्जा",price:120,image:"https://placehold.co/300x200?text=Pizza"},
+{id:6,shop:3,name:"आलू 1 KG",price:30,image:"https://placehold.co/300x200?text=Potato"},
+{id:7,shop:3,name:"टमाटर 1 KG",price:40,image:"https://placehold.co/300x200?text=Tomato"},
+{id:8,shop:4,name:"ब्रेड",price:35,image:"https://placehold.co/300x200?text=Bread"},
+{id:9,shop:5,name:"नहाने का साबुन",price:35,image:"https://placehold.co/300x200?text=Soap"}
+];
+
+let selectedShop=0;
 let cart=[];
-function showProducts(){
-let q=document.getElementById("search").value.toLowerCase();
-document.getElementById("products").innerHTML=products.filter(p=>p.name.toLowerCase().includes(q)).map(p=>`
-<div class="card">
-<div class="emoji">${p.emoji}</div>
-<h3>${p.name}</h3>
-<p>₹${p.price}</p>
-<button onclick="add('${p.name}')">ADD +</button>
-</div>`).join("");
+
+function renderShops(){
+ document.getElementById("shops").innerHTML=
+ '<div class="shop '+(selectedShop===0?'active':'')+'" onclick="selectShop(0)"><h3>🏬 सभी दुकानें</h3><p>सभी प्रोडक्ट देखें</p></div>'+
+ shops.map(s=>`<div class="shop ${selectedShop===s.id?'active':''}" onclick="selectShop(${s.id})"><h3>${s.icon} ${s.name}</h3><p>${s.type}</p></div>`).join('');
 }
-function add(name){
-let p=products.find(x=>x.name===name);
-let item=cart.find(x=>x.name===name);
-if(item)item.qty++;
-else cart.push({...p,qty:1});
-updateCart();
+
+function selectShop(id){
+ selectedShop=id;
+ renderShops();
+ renderProducts();
 }
-function updateCart(){
-let count=cart.reduce((s,x)=>s+x.qty,0);
-let total=cart.reduce((s,x)=>s+x.price*x.qty,0);
-document.getElementById("count").innerText=count;
-document.getElementById("items").innerHTML=cart.length?cart.map(x=>x.name+" × "+x.qty+" = ₹"+x.price*x.qty).join("<br>"):"Your cart is empty.";
-document.getElementById("total").innerText="Total: ₹"+total;
+
+function renderProducts(){
+ const q=document.getElementById("search").value.toLowerCase();
+ const list=products.filter(p=>
+ (selectedShop===0||p.shop===selectedShop)&&
+ (p.name.toLowerCase().includes(q)||shops.find(s=>s.id===p.shop).name.toLowerCase().includes(q))
+ );
+ document.getElementById("products").innerHTML=list.map(p=>`
+ <div class="product">
+ <img src="${p.image}" alt="${p.name}">
+ <h3>${p.name}</h3>
+ <p>${shops.find(s=>s.id===p.shop).name}</p>
+ <div class="price">₹${p.price}</div>
+ <button onclick="addCart(${p.id})">Add to Cart</button>
+ </div>`).join("")||"कोई प्रोडक्ट नहीं मिला।";
+ document.getElementById("productHeading").textContent=
+ selectedShop?shops.find(s=>s.id===selectedShop).name+" के प्रोडक्ट":"लोकप्रिय प्रोडक्ट";
 }
-showProducts();
+
+function addCart(id){
+ const p=products.find(x=>x.id===id);
+ const item=cart.find(x=>x.id===id);
+ if(item)item.qty++;
+ else cart.push({...p,qty:1});
+ renderCart();
+}
+
+function changeQty(id,change){
+ const item=cart.find(x=>x.id===id);
+ if(!item)return;
+ item.qty+=change;
+ if(item.qty<=0)cart=cart.filter(x=>x.id!==id);
+ renderCart();
+}
+
+function renderCart(){
+ const box=document.getElementById("cartItems");
+ box.innerHTML=cart.length?cart.map(p=>`
+ <div class="cart-item">
+ <span>${p.name} × ${p.qty}</span>
+ <span>₹${p.price*p.qty}
+ <button type="button" onclick="changeQty(${p.id},1)">+</button>
+ <button type="button" onclick="changeQty(${p.id},-1)">−</button>
+ </span></div>`).join(""):"अभी Cart खाली है।";
+ document.getElementById("total").textContent=
+ "कुल: ₹"+cart.reduce((sum,p)=>sum+p.price*p.qty,0);
+}
+
+document.getElementById("orderForm").addEventListener("submit",function(e){
+ e.preventDefault();
+ if(!cart.length){alert("पहले Cart में प्रोडक्ट जोड़ें।");return;}
+ const order={
+ name:document.getElementById("customer").value,
+ phone:document.getElementById("phone").value,
+ address:document.getElementById("address").value,
+ items:cart.map(p=>({name:p.name,qty:p.qty,price:p.price})),
+ total:cart.reduce((sum,p)=>sum+p.price*p.qty,0),
+ payment:"Cash on Delivery",
+ date:new Date().toLocaleString("hi-IN")
+ };
+ const orders=JSON.parse(localStorage.getItem("nkt_orders")||"[]");
+ orders.push(order);
+ localStorage.setItem("nkt_orders",JSON.stringify(orders));
+ document.getElementById("message").textContent=
+ "धन्यवाद "+order.name+"! आपका ऑर्डर इस ब्राउज़र में Demo के रूप में सेव हुआ है।";
+ cart=[];
+ renderCart();
+ this.reset();
+});
+renderShops();
+renderProducts();
+renderCart();
 </script>
 </body>
 </html>
-
-
-4. इसके बाद
-कोड Paste करने के बाद ऊपर दाईं तरफ हरे रंग का Commit changes बटन दबाना है।
-
-अगला लक्ष्य
- हमारी वेबसाइट की पहली फाइल GitHub में सेव करना।
-
-अभी कोड Paste करके मुझे स्क्रीनशॉट भेजिए। मैं देखकर अगला स्टेप बताऊँगा।<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>nkt_food-cart</title>
-<style>
-body{margin:0;font-family:Arial;background:#f5f7f5;color:#222}
-header{background:#174331;color:white;padding:20px}
-h1{margin:0}
-main{padding:20px;max-width:1000px;margin:auto}
-.search{width:95%;padding:14px;border:1px solid #ddd;border-radius:10px}
-.categories,.products{display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin-top:20px}
-.card{background:white;padding:18px;border-radius:12px;text-align:center}
-.emoji{font-size:40px}
-button{background:#174331;color:white;border:0;padding:10px 18px;border-radius:8px;cursor:pointer}
-h2{margin-top:28px}
-#cart{background:white;padding:15px;border-radius:12px;margin-top:25px}
-@media(min-width:650px){.categories{grid-template-columns:repeat(4,1fr)}.products{grid-template-columns:repeat(3,1fr)}}
-</style>
-</head>
-<body>
-<header>
-<h1>🛒 nkt_food-cart</h1>
-<p>Food • Grocery • Daily Needs</p>
-<p>📍 Neem Ka Thana, Rajasthan</p>
-</header>
-<main>
-<h2>Welcome to nkt_food-cart!</h2>
-<p>Your Local Food & Grocery Store</p>
-<input class="search" id="search" placeholder="Search food and grocery..." oninput="showProducts()">
-
-<h2>Shop By Category</h2>
-<div class="categories">
-<div class="card"><div class="emoji">🍔</div>Fast Food</div>
-<div class="card"><div class="emoji">🍕</div>Pizza</div>
-<div class="card"><div class="emoji">🥦</div>Vegetables</div>
-<div class="card"><div class="emoji">🥛</div>Grocery</div>
-</div>
-
-<h2>Popular Products</h2>
-<div class="products" id="products"></div>
-
-<div id="cart">
-<h2>🛒 My Cart (<span id="count">0</span>)</h2>
-<div id="items">Your cart is empty.</div>
-<h3 id="total">Total: ₹0</h3>
-</div>
-</main>
-<script>
-const products=[
-{name:"Veg Burger",price:79,emoji:"🍔"},
-{name:"Pizza",price:149,emoji:"🍕"},
-{name:"Momos",price:89,emoji:"🥟"},
-{name:"Milk",price:30,emoji:"🥛"},
-{name:"Bread",price:40,emoji:"🍞"},
-{name:"Tomato",price:30,emoji:"🍅"}
-];
-let cart=[];
-function showProducts(){
-let q=document.getElementById("search").value.toLowerCase();
-document.getElementById("products").innerHTML=products.filter(p=>p.name.toLowerCase().includes(q)).map(p=>`
-<div class="card">
-<div class="emoji">${p.emoji}</div>
-<h3>${p.name}</h3>
-<p>₹${p.price}</p>
-<button onclick="add('${p.name}')">ADD +</button>
-</div>`).join("");
-}
-function add(name){
-let p=products.find(x=>x.name===name);
-let item=cart.find(x=>x.name===name);
-if(item)item.qty++;
-else cart.push({...p,qty:1});
-updateCart();
-}
-function updateCart(){
-let count=cart.reduce((s,x)=>s+x.qty,0);
-let total=cart.reduce((s,x)=>s+x.price*x.qty,0);
-document.getElementById("count").innerText=count;
-document.getElementById("items").innerHTML=cart.length?cart.map(x=>x.name+" × "+x.qty+" = ₹"+x.price*x.qty).join("<br>"):"Your cart is empty.";
-document.getElementById("total").innerText="Total: ₹"+total;
-}
-showProducts();
-</script>
-</body>
-</html>
-
-अभी कोड Paste करके मुझे स्क्रीनशॉट भेजिए। मैं देखकर अगला स्टेप बताऊँगा।
