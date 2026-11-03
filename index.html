@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nkt_food-cart</title>
+<style>
+body{margin:0;font-family:Arial;background:#f5f7f5;color:#222}
+header{background:#174331;color:white;padding:20px}
+h1{margin:0}
+main{padding:20px;max-width:1000px;margin:auto}
+.search{width:95%;padding:14px;border:1px solid #ddd;border-radius:10px}
+.categories,.products{display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin-top:20px}
+.card{background:white;padding:18px;border-radius:12px;text-align:center}
+.emoji{font-size:40px}
+button{background:#174331;color:white;border:0;padding:10px 18px;border-radius:8px;cursor:pointer}
+h2{margin-top:28px}
+#cart{background:white;padding:15px;border-radius:12px;margin-top:25px}
+@media(min-width:650px){.categories{grid-template-columns:repeat(4,1fr)}.products{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<header>
+<h1>🛒 nkt_food-cart</h1>
+<p>Food • Grocery • Daily Needs</p>
+<p>📍 Neem Ka Thana, Rajasthan</p>
+</header>
+<main>
+<h2>Welcome to nkt_food-cart!</h2>
+<p>Your Local Food & Grocery Store</p>
+<input class="search" id="search" placeholder="Search food and grocery..." oninput="showProducts()">
+
+<h2>Shop By Category</h2>
+<div class="categories">
+<div class="card"><div class="emoji">🍔</div>Fast Food</div>
+<div class="card"><div class="emoji">🍕</div>Pizza</div>
+<div class="card"><div class="emoji">🥦</div>Vegetables</div>
+<div class="card"><div class="emoji">🥛</div>Grocery</div>
+</div>
+
+<h2>Popular Products</h2>
+<div class="products" id="products"></div>
+
+<div id="cart">
+<h2>🛒 My Cart (<span id="count">0</span>)</h2>
+<div id="items">Your cart is empty.</div>
+<h3 id="total">Total: ₹0</h3>
+</div>
+</main>
+<script>
+const products=[
+{name:"Veg Burger",price:79,emoji:"🍔"},
+{name:"Pizza",price:149,emoji:"🍕"},
+{name:"Momos",price:89,emoji:"🥟"},
+{name:"Milk",price:30,emoji:"🥛"},
+{name:"Bread",price:40,emoji:"🍞"},
+{name:"Tomato",price:30,emoji:"🍅"}
+];
+let cart=[];
+function showProducts(){
+let q=document.getElementById("search").value.toLowerCase();
+document.getElementById("products").innerHTML=products.filter(p=>p.name.toLowerCase().includes(q)).map(p=>`
+<div class="card">
+<div class="emoji">${p.emoji}</div>
+<h3>${p.name}</h3>
+<p>₹${p.price}</p>
+<button onclick="add('${p.name}')">ADD +</button>
+</div>`).join("");
+}
+function add(name){
+let p=products.find(x=>x.name===name);
+let item=cart.find(x=>x.name===name);
+if(item)item.qty++;
+else cart.push({...p,qty:1});
+updateCart();
+}
+function updateCart(){
+let count=cart.reduce((s,x)=>s+x.qty,0);
+let total=cart.reduce((s,x)=>s+x.price*x.qty,0);
+document.getElementById("count").innerText=count;
+document.getElementById("items").innerHTML=cart.length?cart.map(x=>x.name+" × "+x.qty+" = ₹"+x.price*x.qty).join("<br>"):"Your cart is empty.";
+document.getElementById("total").innerText="Total: ₹"+total;
+}
+showProducts();
+</script>
+</body>
+</html>
+
+
+4. इसके बाद
+कोड Paste करने के बाद ऊपर दाईं तरफ हरे रंग का Commit changes बटन दबाना है।
+
+अगला लक्ष्य
+ हमारी वेबसाइट की पहली फाइल GitHub में सेव करना।
+
+अभी कोड Paste करके मुझे स्क्रीनशॉट भेजिए। मैं देखकर अगला स्टेप बताऊँगा।<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nkt_food-cart</title>
+<style>
+body{margin:0;font-family:Arial;background:#f5f7f5;color:#222}
+header{background:#174331;color:white;padding:20px}
+h1{margin:0}
+main{padding:20px;max-width:1000px;margin:auto}
+.search{width:95%;padding:14px;border:1px solid #ddd;border-radius:10px}
+.categories,.products{display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin-top:20px}
+.card{background:white;padding:18px;border-radius:12px;text-align:center}
+.emoji{font-size:40px}
+button{background:#174331;color:white;border:0;padding:10px 18px;border-radius:8px;cursor:pointer}
+h2{margin-top:28px}
+#cart{background:white;padding:15px;border-radius:12px;margin-top:25px}
+@media(min-width:650px){.categories{grid-template-columns:repeat(4,1fr)}.products{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<header>
+<h1>🛒 nkt_food-cart</h1>
+<p>Food • Grocery • Daily Needs</p>
+<p>📍 Neem Ka Thana, Rajasthan</p>
+</header>
+<main>
+<h2>Welcome to nkt_food-cart!</h2>
+<p>Your Local Food & Grocery Store</p>
+<input class="search" id="search" placeholder="Search food and grocery..." oninput="showProducts()">
+
+<h2>Shop By Category</h2>
+<div class="categories">
+<div class="card"><div class="emoji">🍔</div>Fast Food</div>
+<div class="card"><div class="emoji">🍕</div>Pizza</div>
+<div class="card"><div class="emoji">🥦</div>Vegetables</div>
+<div class="card"><div class="emoji">🥛</div>Grocery</div>
+</div>
+
+<h2>Popular Products</h2>
+<div class="products" id="products"></div>
+
+<div id="cart">
+<h2>🛒 My Cart (<span id="count">0</span>)</h2>
+<div id="items">Your cart is empty.</div>
+<h3 id="total">Total: ₹0</h3>
+</div>
+</main>
+<script>
+const products=[
+{name:"Veg Burger",price:79,emoji:"🍔"},
+{name:"Pizza",price:149,emoji:"🍕"},
+{name:"Momos",price:89,emoji:"🥟"},
+{name:"Milk",price:30,emoji:"🥛"},
+{name:"Bread",price:40,emoji:"🍞"},
+{name:"Tomato",price:30,emoji:"🍅"}
+];
+let cart=[];
+function showProducts(){
+let q=document.getElementById("search").value.toLowerCase();
+document.getElementById("products").innerHTML=products.filter(p=>p.name.toLowerCase().includes(q)).map(p=>`
+<div class="card">
+<div class="emoji">${p.emoji}</div>
+<h3>${p.name}</h3>
+<p>₹${p.price}</p>
+<button onclick="add('${p.name}')">ADD +</button>
+</div>`).join("");
+}
+function add(name){
+let p=products.find(x=>x.name===name);
+let item=cart.find(x=>x.name===name);
+if(item)item.qty++;
+else cart.push({...p,qty:1});
+updateCart();
+}
+function updateCart(){
+let count=cart.reduce((s,x)=>s+x.qty,0);
+let total=cart.reduce((s,x)=>s+x.price*x.qty,0);
+document.getElementById("count").innerText=count;
+document.getElementById("items").innerHTML=cart.length?cart.map(x=>x.name+" × "+x.qty+" = ₹"+x.price*x.qty).join("<br>"):"Your cart is empty.";
+document.getElementById("total").innerText="Total: ₹"+total;
+}
+showProducts();
+</script>
+</body>
+</html>
+
+अभी कोड Paste करके मुझे स्क्रीनशॉट भेजिए। मैं देखकर अगला स्टेप बताऊँगा।
