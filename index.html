@@ -22,12 +22,14 @@ h2{font-size:21px;margin-top:25px}
 .product img{width:100%;height:115px;object-fit:cover;border-radius:8px;background:#eee}
 .price{font-weight:bold;color:#147a45;font-size:17px}
 button{background:#147a45;color:white;border:0;padding:10px 13px;border-radius:8px;cursor:pointer}
-button:disabled{background:#999}
+button:disabled{background:#999;cursor:not-allowed}
 .cart,.checkout{background:white;padding:16px;border-radius:12px;margin-top:22px}
 .cart-item{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #eee}
 input,textarea{width:100%;padding:12px;margin:7px 0;border:1px solid #ccc;border-radius:8px;font-size:15px}
 textarea{min-height:75px}
 .total{font-size:19px;font-weight:bold;margin:15px 0}
+#message{line-height:1.5}
+.status{font-size:13px;margin-top:8px;color:#fff}
 footer{text-align:center;padding:25px;color:#777}
 </style>
 </head>
@@ -36,23 +38,19 @@ footer{text-align:center;padding:25px;color:#777}
 <h1>🛒 NKT FOOD CART</h1>
 <p>Food • Grocery • Daily Needs</p>
 <p>📍 Neem Ka Thana, Rajasthan</p>
+<p class="status" id="connectionStatus">वेबसाइट शुरू हो रही है...</p>
 </header>
-
 <main>
 <input class="search" id="search" placeholder="दुकान या प्रोडक्ट खोजें..." oninput="renderProducts()">
-
 <h2>हमारी दुकानें</h2>
 <div class="shop-list" id="shops"></div>
-
 <h2 id="productHeading">लोकप्रिय प्रोडक्ट</h2>
-<div class="products" id="products"></div>
-
+<div class="products" id="products">प्रोडक्ट लोड हो रहे हैं...</div>
 <section class="cart">
 <h2>🛍️ आपका Cart</h2>
 <div id="cartItems">अभी Cart खाली है।</div>
 <div class="total" id="total">कुल: ₹0</div>
 </section>
-
 <section class="checkout">
 <h2>📦 Checkout</h2>
 <form id="orderForm">
@@ -60,121 +58,194 @@ footer{text-align:center;padding:25px;color:#777}
 <input id="phone" placeholder="मोबाइल नंबर" type="tel" pattern="[0-9]{10}" maxlength="10" required>
 <textarea id="address" placeholder="पूरा डिलीवरी पता" required></textarea>
 <p><b>Payment Method:</b> Cash on Delivery (सामान मिलने पर भुगतान)</p>
-<button type="submit">Place Order</button>
+<button type="submit" id="placeOrderButton">Place Order</button>
 </form>
-<p id="message"></p>
+<p id="message" role="status"></p>
 </section>
 </main>
-
 <footer>NKT Food Cart © Neem Ka Thana</footer>
 
+<!-- Setup: replace the two placeholders below with your Supabase Project URL
+     and the Publishable key (sb_publishable_...). Never put a Secret key here. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const shops=[
-{id:1,name:"Sharma Grocery",type:"किराना स्टोर",icon:"🛒"},
-{id:2,name:"City Fast Food",type:"फास्ट फूड",icon:"🍔"},
-{id:3,name:"Fresh Vegetable Store",type:"सब्जी की दुकान",icon:"🥦"},
-{id:4,name:"Gupta Bakery",type:"बेकरी",icon:"🎂"},
-{id:5,name:"Daily Needs Store",type:"दैनिक जरूरतें",icon:"🏪"}
-];
+const SUPABASE_URL = "https://tgiudhmemghjafzekzzf.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_w99FhFdW97XbUIYIjrSKRA_Ygsw6nG2";
 
-const products=[
-{id:1,shop:1,name:"आटा 5 KG",price:180,image:"https://placehold.co/300x200?text=Atta"},
-{id:2,shop:1,name:"चावल 1 KG",price:65,image:"https://placehold.co/300x200?text=Rice"},
-{id:3,shop:1,name:"चीनी 1 KG",price:45,image:"https://placehold.co/300x200?text=Sugar"},
-{id:4,shop:2,name:"वेज बर्गर",price:60,image:"https://placehold.co/300x200?text=Burger"},
-{id:5,shop:2,name:"पिज्जा",price:120,image:"https://placehold.co/300x200?text=Pizza"},
-{id:6,shop:3,name:"आलू 1 KG",price:30,image:"https://placehold.co/300x200?text=Potato"},
-{id:7,shop:3,name:"टमाटर 1 KG",price:40,image:"https://placehold.co/300x200?text=Tomato"},
-{id:8,shop:4,name:"ब्रेड",price:35,image:"https://placehold.co/300x200?text=Bread"},
-{id:9,shop:5,name:"नहाने का साबुन",price:35,image:"https://placehold.co/300x200?text=Soap"}
-];
+let supabaseClient = null;
+let shops = [];
+let products = [];
+let selectedShop = "all";
+let cart = [];
 
-let selectedShop=0;
-let cart=[];
-
-function renderShops(){
- document.getElementById("shops").innerHTML=
- '<div class="shop '+(selectedShop===0?'active':'')+'" onclick="selectShop(0)"><h3>🏬 सभी दुकानें</h3><p>सभी प्रोडक्ट देखें</p></div>'+
- shops.map(s=>`<div class="shop ${selectedShop===s.id?'active':''}" onclick="selectShop(${s.id})"><h3>${s.icon} ${s.name}</h3><p>${s.type}</p></div>`).join('');
+function setStatus(message) {
+  document.getElementById("connectionStatus").textContent = message;
 }
-
-function selectShop(id){
- selectedShop=id;
- renderShops();
- renderProducts();
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[ch]));
 }
-
-function renderProducts(){
- const q=document.getElementById("search").value.toLowerCase();
- const list=products.filter(p=>
- (selectedShop===0||p.shop===selectedShop)&&
- (p.name.toLowerCase().includes(q)||shops.find(s=>s.id===p.shop).name.toLowerCase().includes(q))
- );
- document.getElementById("products").innerHTML=list.map(p=>`
- <div class="product">
- <img src="${p.image}" alt="${p.name}">
- <h3>${p.name}</h3>
- <p>${shops.find(s=>s.id===p.shop).name}</p>
- <div class="price">₹${p.price}</div>
- <button onclick="addCart(${p.id})">Add to Cart</button>
- </div>`).join("")||"कोई प्रोडक्ट नहीं मिला।";
- document.getElementById("productHeading").textContent=
- selectedShop?shops.find(s=>s.id===selectedShop).name+" के प्रोडक्ट":"लोकप्रिय प्रोडक्ट";
+function money(value) {
+  return Number(value || 0).toLocaleString("en-IN", {maximumFractionDigits:2});
 }
-
-function addCart(id){
- const p=products.find(x=>x.id===id);
- const item=cart.find(x=>x.id===id);
- if(item)item.qty++;
- else cart.push({...p,qty:1});
- renderCart();
+function shopFor(product) {
+  return shops.find(s => s.id === product.store_id);
 }
-
-function changeQty(id,change){
- const item=cart.find(x=>x.id===id);
- if(!item)return;
- item.qty+=change;
- if(item.qty<=0)cart=cart.filter(x=>x.id!==id);
- renderCart();
+async function connectAndLoad() {
+  if (!window.supabase || SUPABASE_URL.includes("PASTE_") || SUPABASE_PUBLISHABLE_KEY.includes("PASTE_")) {
+    setStatus("Supabase key अभी index.html में डालनी बाकी है।");
+    document.getElementById("products").textContent = "Supabase URL और Publishable key जोड़ने के बाद प्रोडक्ट दिखेंगे।";
+    return;
+  }
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  try {
+    const [storeResult, productResult] = await Promise.all([
+      supabaseClient.from("stores").select("id,name,store_type,address,is_active").eq("is_active", true).order("name"),
+      supabaseClient.from("products").select("id,name,price,store_id,description,image_url,is_available").eq("is_available", true).order("name")
+    ]);
+    if (storeResult.error) throw new Error("दुकानें: " + storeResult.error.message);
+    if (productResult.error) throw new Error("प्रोडक्ट: " + productResult.error.message);
+    shops = storeResult.data || [];
+    products = productResult.data || [];
+    renderShops();
+    renderProducts();
+    setStatus("Supabase से कनेक्शन सफल है।");
+  } catch (error) {
+    console.error(error);
+    setStatus("Supabase से डेटा नहीं आया: " + error.message);
+    document.getElementById("products").textContent = "डेटा लोड नहीं हुआ। Supabase की Table/Policy settings जाँचें।";
+  }
 }
-
-function renderCart(){
- const box=document.getElementById("cartItems");
- box.innerHTML=cart.length?cart.map(p=>`
- <div class="cart-item">
- <span>${p.name} × ${p.qty}</span>
- <span>₹${p.price*p.qty}
- <button type="button" onclick="changeQty(${p.id},1)">+</button>
- <button type="button" onclick="changeQty(${p.id},-1)">−</button>
- </span></div>`).join(""):"अभी Cart खाली है।";
- document.getElementById("total").textContent=
- "कुल: ₹"+cart.reduce((sum,p)=>sum+p.price*p.qty,0);
+function renderShops() {
+  const all = `<div class="shop ${selectedShop==="all"?"active":""}" onclick="selectShop('all')"><h3>🏬 सभी दुकानें</h3><p>सभी प्रोडक्ट देखें</p></div>`;
+  const cards = shops.map(s => `<div class="shop ${selectedShop===s.id?"active":""}" onclick="selectShop('${s.id}')"><h3>🏪 ${escapeHtml(s.name)}</h3><p>${escapeHtml(s.store_type || "दुकान")}</p></div>`).join("");
+  document.getElementById("shops").innerHTML = all + cards;
 }
+function selectShop(id) {
+  selectedShop = id;
+  renderShops();
+  renderProducts();
+}
+function renderProducts() {
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const list = products.filter(p => {
+    const store = shopFor(p);
+    const matchesShop = selectedShop === "all" || p.store_id === selectedShop;
+    const matchesText = (p.name || "").toLowerCase().includes(q) ||
+      (store?.name || "").toLowerCase().includes(q) ||
+      (p.description || "").toLowerCase().includes(q);
+    return matchesShop && matchesText;
+  });
+  document.getElementById("products").innerHTML = list.map(p => {
+    const store = shopFor(p);
+    const image = p.image_url || "https://placehold.co/300x200?text=NKT+Food+Cart";
+    return `<div class="product">
+      <img src="${escapeHtml(image)}" alt="${escapeHtml(p.name)}" onerror="this.src='https://placehold.co/300x200?text=Product'">
+      <h3>${escapeHtml(p.name)}</h3>
+      <p>${escapeHtml(store?.name || "NKT Food Cart")}</p>
+      ${p.description ? `<p>${escapeHtml(p.description)}</p>` : ""}
+      <div class="price">₹${money(p.price)}</div>
+      <button onclick="addCart('${p.id}')">Add to Cart</button>
+    </div>`;
+  }).join("") || "अभी कोई उपलब्ध प्रोडक्ट नहीं मिला।";
+  const store = shops.find(s => s.id === selectedShop);
+  document.getElementById("productHeading").textContent =
+    store ? store.name + " के प्रोडक्ट" : "लोकप्रिय प्रोडक्ट";
+}
+function addCart(id) {
+  const p = products.find(x => String(x.id) === String(id));
+  if (!p) return;
+  const item = cart.find(x => String(x.id) === String(id));
+  if (item) item.qty++;
+  else cart.push({...p, qty:1});
+  renderCart();
+}
+function changeQty(id, change) {
+  const item = cart.find(x => String(x.id) === String(id));
+  if (!item) return;
+  item.qty += change;
+  if (item.qty <= 0) cart = cart.filter(x => String(x.id) !== String(id));
+  renderCart();
+}
+function renderCart() {
+  const box = document.getElementById("cartItems");
+  box.innerHTML = cart.length ? cart.map(p => `
+    <div class="cart-item">
+      <span>${escapeHtml(p.name)} × ${p.qty}</span>
+      <span>₹${money(Number(p.price)*p.qty)}
+        <button type="button" onclick="changeQty('${p.id}',1)">+</button>
+        <button type="button" onclick="changeQty('${p.id}',-1)">−</button>
+      </span>
+    </div>`).join("") : "अभी Cart खाली है।";
+  document.getElementById("total").textContent =
+    "कुल: ₹" + money(cart.reduce((sum,p) => sum + Number(p.price)*p.qty, 0));
+}
+document.getElementById("orderForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+  const message = document.getElementById("message");
+  const button = document.getElementById("placeOrderButton");
+  if (!cart.length) { message.textContent = "पहले Cart में प्रोडक्ट जोड़ें।"; return; }
+  if (!supabaseClient) { message.textContent = "पहले वेबसाइट में Supabase URL और Publishable key जोड़नी होगी।"; return; }
+const customerName = document.getElementById("customer").value.trim();
+  const customerPhone = document.getElementById("phone").value.trim();
+  const deliveryAddress = document.getElementById("address").value.trim();
+  const total = cart.reduce((sum,p) => sum + Number(p.price)*p.qty, 0);
 
-document.getElementById("orderForm").addEventListener("submit",function(e){
- e.preventDefault();
- if(!cart.length){alert("पहले Cart में प्रोडक्ट जोड़ें।");return;}
- const order={
- name:document.getElementById("customer").value,
- phone:document.getElementById("phone").value,
- address:document.getElementById("address").value,
- items:cart.map(p=>({name:p.name,qty:p.qty,price:p.price})),
- total:cart.reduce((sum,p)=>sum+p.price*p.qty,0),
- payment:"Cash on Delivery",
- date:new Date().toLocaleString("hi-IN")
- };
- const orders=JSON.parse(localStorage.getItem("nkt_orders")||"[]");
- orders.push(order);
- localStorage.setItem("nkt_orders",JSON.stringify(orders));
- document.getElementById("message").textContent=
- "धन्यवाद "+order.name+"! आपका ऑर्डर इस ब्राउज़र में Demo के रूप में सेव हुआ है।";
- cart=[];
- renderCart();
- this.reset();
+  // orders table has a store_id, so create one order per shop in the cart.
+  const groups = new Map();
+  for (const item of cart) {
+    if (!groups.has(item.store_id)) groups.set(item.store_id, []);
+    groups.get(item.store_id).push(item);
+  }
+  button.disabled = true;
+  button.textContent = "Order भेजा जा रहा है...";
+  message.textContent = "कृपया प्रतीक्षा करें...";
+  const createdOrders = [];
+
+  try {
+    for (const [storeId, items] of groups.entries()) {
+      const storeTotal = items.reduce((sum,p) => sum + Number(p.price)*p.qty, 0);
+      const orderPayload = {
+        store_id: storeId,
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        delivery_address: deliveryAddress,
+        total_amount: storeTotal,
+        payment_method: "Cash on Delivery",
+        status: "placed"
+      };
+      const {data: order, error: orderError} = await supabaseClient
+        .from("orders").insert(orderPayload).select("id").single();
+      if (orderError) throw orderError;
+      createdOrders.push(order.id);
+
+      const itemRows = items.map(p => ({
+        order_id: order.id,
+        product_id: p.id,
+        product_name: p.name,
+        unit_price: Number(p.price),
+        quantity: p.qty
+      }));
+      const {error: itemsError} = await supabaseClient.from("order_items").insert(itemRows);
+      if (itemsError) throw itemsError;
+    }
+    message.textContent = "धन्यवाद " + customerName + "! आपका ऑर्डर Supabase में दर्ज हो गया। Order संख्या: " + createdOrders.join(", ");
+    cart = [];
+    renderCart();
+    this.reset();
+  } catch (error) {
+    console.error(error);
+    message.textContent = "ऑर्डर सेव नहीं हुआ: " + (error.message || "कृपया Supabase की orders/order_items columns और RLS policies जाँचें।");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Place Order";
+  }
 });
 renderShops();
 renderProducts();
 renderCart();
+connectAndLoad();
 </script>
 </body>
 </html>
