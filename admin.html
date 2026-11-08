@@ -17,30 +17,37 @@ input,select,textarea{width:100%;padding:12px;margin:7px 0;border:1px solid #ccc
 button{background:#147a45;color:white;border:0;padding:11px 14px;border-radius:8px;margin:4px;cursor:pointer}
 button.delete{background:#bd3030}
 button.secondary{background:#555}
+button:disabled{opacity:.6;cursor:not-allowed}
 .item{border-bottom:1px solid #ddd;padding:12px 0}
 .small{color:#666;font-size:13px}
 .hidden{display:none}
 .row{display:flex;gap:8px;flex-wrap:wrap}
-.row>*{flex:1}
-#message{white-space:pre-wrap;color:#b22}
+.row>*{flex:1;min-width:120px}
+#message{white-space:pre-wrap;color:#b22;padding:8px}
+#message.success{color:#147a45}
 </style>
 </head>
 <body>
+
 <header>
 <h2>🛒 NKT FOOD CART</h2>
 <p>Admin Dashboard</p>
 </header>
 
 <main>
+
+<p id="message"></p>
+
 <section class="card" id="loginBox">
 <h3>Admin Login</h3>
 <input id="email" type="email" placeholder="Admin Email">
 <input id="password" type="password" placeholder="Password">
-<button onclick="login()">Login</button>
+<button id="loginButton" onclick="login()">Login</button>
 <p class="small">Admin account Supabase Auth में बनाया होना चाहिए।</p>
 </section>
 
 <section id="dashboard" class="hidden">
+
 <div class="card">
 <h3>Admin Dashboard</h3>
 <button onclick="loadAll()">Refresh Data</button>
@@ -55,15 +62,25 @@ button.secondary{background:#555}
 
 <div class="card">
 <h3>➕ Add / Edit Product</h3>
+
 <input id="productId" type="hidden">
 <input id="productName" placeholder="Product Name">
+
 <div class="row">
-<input id="productPrice" type="number" placeholder="Price">
-<select id="productStore"></select>
+<input id="productPrice" type="number" min="0" step="0.01" placeholder="Price">
+<select id="productStore">
+<option value="">Shop चुनें</option>
+</select>
 </div>
+
 <input id="productImage" placeholder="Image URL">
 <textarea id="productDescription" placeholder="Description"></textarea>
-<label><input id="productAvailable" type="checkbox" checked style="width:auto"> Product Available</label>
+
+<label>
+<input id="productAvailable" type="checkbox" checked style="width:auto">
+Product Available
+</label>
+
 <button onclick="saveProduct()">Save Product</button>
 <button class="secondary" onclick="clearProductForm()">Clear</button>
 </div>
@@ -72,7 +89,7 @@ button.secondary{background:#555}
 <h3>🛍️ Products</h3>
 <div id="products">Products लोड हो रहे हैं...</div>
 </div>
-<p id="message"></p>
+
 </section>
 </main>
 
@@ -81,63 +98,114 @@ const SUPABASE_URL="https://tgiudhmemghjafzekzzf.supabase.co";
 const SUPABASE_KEY="sb_publishable_w99FhFdW97XbUIYIjrSKRA_Ygsw6nG2";
 
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
 let currentUser=null;
 let stores=[];
 let products=[];
 
-function msg(t){
- document.getElementById("message").textContent=t;
+function msg(t,success=false){
+ const el=document.getElementById("message");
+ el.textContent=t;
+ el.className=success?"success":"";
 }
+
 function safe(v){
  return String(v??"").replace(/[&<>"']/g,c=>({
  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
  }[c]));
 }
+
 function money(v){
  return Number(v||0).toLocaleString("en-IN");
 }
 
 async function login(){
  msg("");
+
+ const button=document.getElementById("loginButton");
  const email=document.getElementById("email").value.trim();
  const password=document.getElementById("password").value;
- if(!email||!password){msg("Email और Password भरें।");return;}
 
- const {data,error}=await db.auth.signInWithPassword({email,password});
- if(error){msg("Login असफल: "+error.message);return;}
-
- currentUser=data.user;
- await checkAdmin();
-}
-
-async function checkAdmin(){
- const {data,error}=await db.from("admin_users")
- .select("user_id")
- .eq("user_id",currentUser.id)
- .eq("is_active",true)
- .maybeSingle();
-
- if(error||!data){
-  await db.auth.signOut();
-  currentUser=null;
-  msg("इस अकाउंट को Admin अनुमति नहीं मिली।");
+ if(!email||!password){
+  msg("Email और Password भरें।");
   return;
  }
 
- document.getElementById("loginBox").classList.add("hidden");
- document.getElementById("dashboard").classList.remove("hidden");
- document.getElementById("welcome").textContent="Login: "+currentUser.email;
- await loadAll();
+ button.disabled=true;
+ button.textContent="Login हो रहा है...";
+
+ try{
+  const {data,error}=await db.auth.signInWithPassword({
+   email,password
+  });
+
+  if(error){
+   msg("Login असफल: "+error.message);
+   return;
+  }
+
+  currentUser=data.user;
+  await checkAdmin();
+
+ }catch(error){
+  msg("Error: "+error.message);
+ }finally{
+  button.disabled=false;
+  button.textContent="Login";
+ }
+}
+
+async function checkAdmin(){
+ if(!currentUser){
+  msg("पहले Login करें।");
+  return;
+ }
+
+ try{
+  const {data,error}=await db.from("profiles")
+   .select("role")
+   .eq("id",currentUser.id)
+   .maybeSingle();
+
+  if(error){
+   msg("Admin जाँच में समस्या: "+error.message);
+   return;
+  }
+
+  if(!data || data.role!=="admin"){
+   await db.auth.signOut();
+   currentUser=null;
+   msg("इस अकाउंट को Admin अनुमति नहीं मिली।");
+   return;
+  }
+
+  document.getElementById("loginBox").classList.add("hidden");
+  document.getElementById("dashboard").classList.remove("hidden");
+  document.getElementById("welcome").textContent=
+   "Login: "+currentUser.email;
+
+  msg("Admin Login सफल हुआ।",true);
+  await loadAll();
+
+ }catch(error){
+  msg("Admin जाँच में समस्या: "+error.message);
+ }
 }
 
 async function logout(){
  await db.auth.signOut();
  currentUser=null;
+
  document.getElementById("dashboard").classList.add("hidden");
  document.getElementById("loginBox").classList.remove("hidden");
+ document.getElementById("password").value="";
+
+ msg("आप Logout हो गए हैं।",true);
 }
 
 async function loadAll(){
+ if(!currentUser)return;
+
  await loadStores();
  await loadProducts();
  await loadOrders();
@@ -145,31 +213,50 @@ async function loadAll(){
 
 async function loadStores(){
  const {data,error}=await db.from("stores")
- .select("id,name").eq("is_active",true).order("name");
+  .select("id,name")
+  .eq("is_active",true)
+  .order("name");
 
- if(error){msg("Stores: "+error.message);return;}
+ if(error){
+  msg("Stores लोड नहीं हुए: "+error.message);
+  return;
+ }
+
  stores=data||[];
+
  document.getElementById("productStore").innerHTML=
- stores.map(s=>`<option value="${safe(s.id)}">${safe(s.name)}</option>`).join("");
+  '<option value="">Shop चुनें</option>'+
+  stores.map(s=>
+   `<option value="${safe(s.id)}">${safe(s.name)}</option>`
+  ).join("");
 }
 
 async function loadProducts(){
  const {data,error}=await db.from("products")
- .select("id,name,price,store_id,description,image_url,is_available")
- .order("id");
+  .select("id,name,price,store_id,description,image_url,is_available")
+  .order("id");
 
- if(error){msg("Products: "+error.message);return;}
+ if(error){
+  msg("Products लोड नहीं हुए: "+error.message);
+  return;
+ }
+
  products=data||[];
 
- document.getElementById("products").innerHTML=products.map(p=>{
- const store=stores.find(s=>String(s.id)===String(p.store_id));
- return `<div class="item">
- <b>${safe(p.name)}</b> — ₹${money(p.price)}
- <p class="small">${safe(store?.name||"दुकान नहीं मिली")} | ${p.is_available?"Available":"Unavailable"}</p>
- <button onclick="editProduct('${safe(p.id)}')">Edit</button>
- <button class="delete" onclick="deleteProduct('${safe(p.id)}')">Delete</button>
- </div>`;
- }).join("")||"कोई Product नहीं मिला।";
+ document.getElementById("products").innerHTML=
+  products.map(p=>{
+   const store=stores.find(s=>String(s.id)===String(p.store_id));
+
+   return `<div class="item">
+    <b>${safe(p.name)}</b> — ₹${money(p.price)}
+    <p class="small">
+     ${safe(store?.name||"दुकान नहीं मिली")} |
+     ${p.is_available?"Available":"Unavailable"}
+    </p>
+    <button onclick="editProduct('${safe(p.id)}')">Edit</button>
+    <button class="delete" onclick="deleteProduct('${safe(p.id)}')">Delete</button>
+   </div>`;
+  }).join("")||"कोई Product नहीं मिला।";
 }
 
 async function saveProduct(){
@@ -181,22 +268,43 @@ async function saveProduct(){
  const image_url=document.getElementById("productImage").value.trim();
  const is_available=document.getElementById("productAvailable").checked;
 
- if(!name||!price||!store_id){msg("Product Name, Price और Shop भरें।");return;}
+ if(!name||!Number.isFinite(price)||price<=0||!store_id){
+  msg("Product Name, सही Price और Shop भरें।");
+  return;
+ }
 
- const record={name,price,store_id,description,image_url,is_available};
- const result=id
- ? await db.from("products").update(record).eq("id",id)
- : await db.from("products").insert(record);
+ const record={
+  name,
+  price,
+  store_id,
+  description,
+  image_url,
+  is_available
+ };
 
- if(result.error){msg("Product सेव नहीं हुआ: "+result.error.message);return;}
- msg("Product सफलतापूर्वक सेव हो गया।");
- clearProductForm();
- await loadProducts();
+ try{
+  const result=id
+   ? await db.from("products").update(record).eq("id",id)
+   : await db.from("products").insert(record);
+
+  if(result.error){
+   msg("Product सेव नहीं हुआ: "+result.error.message);
+   return;
+  }
+
+  msg("Product सफलतापूर्वक सेव हो गया।",true);
+  clearProductForm();
+  await loadProducts();
+
+ }catch(error){
+  msg("Error: "+error.message);
+ }
 }
 
 function editProduct(id){
  const p=products.find(x=>String(x.id)===String(id));
  if(!p)return;
+
  document.getElementById("productId").value=p.id;
  document.getElementById("productName").value=p.name||"";
  document.getElementById("productPrice").value=p.price||"";
@@ -204,58 +312,116 @@ function editProduct(id){
  document.getElementById("productDescription").value=p.description||"";
  document.getElementById("productImage").value=p.image_url||"";
  document.getElementById("productAvailable").checked=!!p.is_available;
+
  window.scrollTo({top:0,behavior:"smooth"});
 }
 
 function clearProductForm(){
- ["productId","productName","productPrice","productImage","productDescription"]
- .forEach(id=>document.getElementById(id).value="");
+ [
+  "productId",
+  "productName",
+  "productPrice",
+  "productImage",
+  "productDescription"
+ ].forEach(id=>{
+  document.getElementById(id).value="";
+ });
+
+ document.getElementById("productStore").value="";
  document.getElementById("productAvailable").checked=true;
 }
 
 async function deleteProduct(id){
  if(!confirm("क्या आप यह Product Delete करना चाहते हैं?"))return;
- const {error}=await db.from("products").delete().eq("id",id);
- if(error){msg("Delete नहीं हुआ: "+error.message);return;}
- msg("Product Delete हो गया।");
+
+ const {error}=await db.from("products")
+  .delete()
+  .eq("id",id);
+
+ if(error){
+  msg("Delete नहीं हुआ: "+error.message);
+  return;
+ }
+
+ msg("Product Delete हो गया।",true);
  await loadProducts();
 }
 
 async function loadOrders(){
  const {data,error}=await db.from("orders")
- .select("*").order("id",{ascending:false});
+  .select("*")
+  .order("id",{ascending:false});
 
- if(error){msg("Orders: "+error.message);return;}
+ if(error){
+  msg("Orders लोड नहीं हुए: "+error.message);
+  return;
+ }
 
- document.getElementById("orders").innerHTML=(data||[]).map(o=>`
- <div class="item">
- <b>Order #${safe(o.id)}</b>
- <p>${safe(o.customer_name)} | ${safe(o.customer_phone)}</p>
- <p>${safe(o.delivery_address)}</p>
- <p>Amount: ₹${money(o.total_amount)} | Payment: ${safe(o.payment_method)}</p>
- <p>Status: <b>${safe(o.status)}</b></p>
- <select id="status-${safe(o.id)}">
- ${["placed","confirmed","preparing","out_for_delivery","delivered","cancelled"].map(s=>
- `<option value="${s}" ${o.status===s?"selected":""}>${s}</option>`).join("")}
- </select>
- <button onclick="updateStatus('${safe(o.id)}')">Update Status</button>
- </div>`).join("")||"अभी कोई Order नहीं है।";
+ document.getElementById("orders").innerHTML=
+  (data||[]).map(o=>`
+   <div class="item">
+    <b>Order #${safe(o.order_number||o.id)}</b>
+    <p>${safe(o.customer_name)} | ${safe(o.customer_phone)}</p>
+    <p>${safe(o.delivery_address)}</p>
+    <p>
+     Amount: ₹${money(o.total_amount)} |
+     Payment: ${safe(o.payment_method)}
+    </p>
+    <p>Status: <b>${safe(o.status)}</b></p>
+
+    <select id="status-${safe(o.id)}">
+     ${[
+      "placed",
+      "confirmed",
+      "preparing",
+      "out_for_delivery",
+      "delivered",
+      "cancelled"
+     ].map(s=>`
+      <option value="${s}" ${o.status===s?"selected":""}>
+       ${s}
+      </option>
+     `).join("")}
+    </select>
+
+    <button onclick="updateStatus('${safe(o.id)}')">
+     Update Status
+    </button>
+   </div>
+  `).join("")||"अभी कोई Order नहीं है।";
 }
 
 async function updateStatus(id){
- const status=document.getElementById("status-"+id).value;
- const {error}=await db.from("orders").update({status}).eq("id",id);
- if(error){msg("Status update नहीं हुआ: "+error.message);return;}
- msg("Order Status अपडेट हो गया।");
+ const select=document.getElementById("status-"+id);
+ if(!select)return;
+
+ const status=select.value;
+
+ const {error}=await db.from("orders")
+  .update({status})
+  .eq("id",id);
+
+ if(error){
+  msg("Status update नहीं हुआ: "+error.message);
+  return;
+ }
+
+ msg("Order Status अपडेट हो गया।",true);
  await loadOrders();
 }
 
-db.auth.getSession().then(async ({data})=>{
+db.auth.getSession().then(async ({data,error})=>{
+ if(error){
+  msg("Session जाँच में समस्या: "+error.message);
+  return;
+ }
+
  if(data.session){
   currentUser=data.session.user;
   await checkAdmin();
  }
 });
 </script>
+
 </body>
 </html>
